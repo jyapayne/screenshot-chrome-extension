@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Full Screenshot Selector",
+  "version": "1.0",
+  "description": "Visually select and capture full screenshots of any element, including hidden scrollable content",
+
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Full Screenshot Selector",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["html2canvas-pro.min.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "commands": {
+    "activate-selector": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Activate screenshot selector"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

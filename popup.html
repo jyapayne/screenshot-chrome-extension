@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      background: #f8f9fa;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      color: #333;
+    }
+
+    .header p {
+      margin: 0;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .setting-group {
+      margin-bottom: 20px;
+    }
+
+    .setting-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+      box-sizing: border-box;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #545b62;
+    }
+
+    .shortcut-info {
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+      margin-top: 10px;
+      padding: 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+    }
+
+    .status {
+      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 12px;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📸 Screenshot Selector</h1>
+    <p>Capture full element screenshots</p>
+  </div>
+
+  <div class="setting-group">
+    <label for="background-select">Background Color:</label>
+    <select id="background-select">
+      <option value="black">Black</option>
+      <option value="transparent">Transparent</option>
+      <option value="white">White</option>
+    </select>
+  </div>
+
+  <button id="start-selector" class="btn btn-primary">
+    Start Element Selector
+  </button>
+
+  <button id="stop-selector" class="btn btn-secondary" style="display: none;">
+    Stop Selector
+  </button>
+
+  <div id="status" class="status" style="display: none;"></div>
+
+  <div class="shortcut-info">
+    💡 Tip: Use <strong>Ctrl+Shift+S</strong> (or Cmd+Shift+S on Mac) to quickly activate
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
