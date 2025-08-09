@@ -12,7 +12,7 @@
 ## 🚀 Usage
 
 1. **Click** the extension icon in the toolbar
-2. **Or press** `Ctrl+Shift+S` (Cmd+Shift+S on Mac)
+2. **Or press** `Alt+Shift+S` (Option+Shift+S on Mac)
 3. **Hover** over any element on a webpage
 4. **Look for** red dotted borders showing scrollable content
 5. **Click** to capture the full element screenshot
