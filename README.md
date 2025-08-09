@@ -7,7 +7,7 @@ A powerful Chrome extension that allows you to visually select and capture full 
 - **Visual Element Selection**: Hover over any element and see it highlighted
 - **Full Content Capture**: Captures complete scrollable content, not just visible area
 - **Background Options**: Choose between black, transparent, or white backgrounds
-- **Keyboard Shortcut**: Quick access with `Ctrl+Shift+S` (or `Cmd+Shift+S` on Mac)
+- **Keyboard Shortcut**: Quick access with `Alt+Shift+S` (or `Option+Shift+S` on Mac)
 - **Clean UI**: Non-intrusive interface with modern design
 - **Auto-Download**: Screenshots save automatically with timestamps
 
