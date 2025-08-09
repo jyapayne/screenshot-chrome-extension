@@ -35,7 +35,7 @@ A powerful Chrome extension that allows you to visually select and capture full 
 6. **Press ESC** or click the cancel button to exit
 
 ### Method 2: Keyboard Shortcut
-1. **Press `Ctrl+Shift+S`** (or `Cmd+Shift+S` on Mac)
+1. **Press `Alt+Shift+S`** (or `Option+Shift+S` on Mac)
 2. **Hover and click** elements to capture
 3. **Press ESC** to exit
 
