@@ -64,6 +64,18 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
+    // Reset clipboard mock for each test
+    if (!global.navigator) {
+      global.navigator = {};
+    }
+    global.navigator.clipboard = {
+      write: jest.fn().mockResolvedValue()
+    };
+    global.window.ClipboardItem = jest.fn().mockImplementation((data) => {
+      return { data, type: 'image/png' };
+    });
+    global.window.isSecureContext = true;
+    
     // Mock element to capture
     mockElement = {
       classList: {
@@ -92,13 +104,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
     global.html2canvas = jest.fn().mockResolvedValue(mockCanvas);
 
-    // Mock full clipboard API support
-    global.navigator = {
-      clipboard: {
-        write: jest.fn().mockResolvedValue()
-      }
-    };
-    global.window.ClipboardItem = jest.fn();
+
 
     // Import ScreenshotSelector (simplified for testing)
     const ScreenshotSelector = class {
@@ -106,12 +112,14 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
         this.isActive = false;
         this.background = 'black';
         this.copyToClipboard = true;
+        this.saveToPc = true;
         this.overlay = null;
       }
 
-      async init(background = 'black', copyToClipboard = true) {
+      async init(background = 'black', copyToClipboard = true, saveToPc = true) {
         this.background = background;
         this.copyToClipboard = copyToClipboard;
+        this.saveToPc = saveToPc;
         this.isActive = true;
         this.createUI();
       }
@@ -194,12 +202,36 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
             clipboardResult = await this.copyCanvasToClipboard(canvas);
           }
 
-          // Update UI based on results
-          let successMessage = 'Screenshot downloaded successfully!';
-          if (this.copyToClipboard && clipboardResult && clipboardResult.success) {
-            successMessage = 'Screenshot downloaded and copied to clipboard!';
-          } else if (this.copyToClipboard && clipboardResult && !clipboardResult.success) {
-            successMessage = `Screenshot downloaded successfully! Clipboard copy failed: ${clipboardResult.error}`;
+          // Update UI based on results (matching new message format)
+          let successMessage = 'Screenshot captured!';
+          let messageIcon = '✅';
+          
+          if (this.saveToPc && this.copyToClipboard) {
+            // Both operations enabled
+            if (clipboardResult && clipboardResult.success) {
+              successMessage = 'Screenshot saved and copied to clipboard!';
+              messageIcon = '✅';
+            } else {
+              // Save succeeded but clipboard failed
+              const errorMessage = clipboardResult ? clipboardResult.error.toLowerCase() : 'clipboard copy failed';
+              successMessage = `Screenshot saved successfully! However, ${errorMessage}`;
+              messageIcon = '⚠️';
+            }
+          } else if (this.saveToPc && !this.copyToClipboard) {
+            // Only save to PC enabled
+            successMessage = 'Screenshot saved to downloads folder!';
+            messageIcon = '💾';
+          } else if (!this.saveToPc && this.copyToClipboard) {
+            // Only clipboard enabled
+            if (clipboardResult && clipboardResult.success) {
+              successMessage = 'Screenshot copied to clipboard!';
+              messageIcon = '📋';
+            } else {
+              // Clipboard failed - this is a complete failure since no other output method is enabled
+              const errorMessage = clipboardResult ? clipboardResult.error : 'clipboard copy failed';
+              successMessage = `Screenshot capture failed: ${errorMessage}`;
+              messageIcon = '❌';
+            }
           }
 
           this.overlay.innerHTML = `<div>${successMessage}</div>`;
@@ -238,7 +270,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
     expect(result.success).toBe(true);
     expect(result.downloadSuccess).toBe(true);
     expect(result.clipboardResult.success).toBe(true);
-    expect(result.message).toBe('Screenshot downloaded and copied to clipboard!');
+    expect(result.message).toBe('Screenshot saved and copied to clipboard!');
   });
 
   test('should capture with black background and copy to clipboard', async () => {
@@ -254,7 +286,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
     expect(result.success).toBe(true);
     expect(result.clipboardResult.success).toBe(true);
-    expect(result.message).toBe('Screenshot downloaded and copied to clipboard!');
+    expect(result.message).toBe('Screenshot saved and copied to clipboard!');
   });
 
   test('should capture with white background and copy to clipboard', async () => {
@@ -270,24 +302,28 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
     expect(result.success).toBe(true);
     expect(result.clipboardResult.success).toBe(true);
-    expect(result.message).toBe('Screenshot downloaded and copied to clipboard!');
+    expect(result.message).toBe('Screenshot saved and copied to clipboard!');
   });
 
   test('should capture without clipboard when disabled', async () => {
-    await screenshotSelector.init('black', false);
+    await screenshotSelector.init('black', false, true); // saveToPc = true, copyToClipboard = false
     
     const result = await screenshotSelector.captureElement(mockElement);
 
     expect(result.success).toBe(true);
     expect(result.downloadSuccess).toBe(true);
     expect(result.clipboardResult).toBe(null); // No clipboard operation attempted
-    expect(result.message).toBe('Screenshot downloaded successfully!');
-    expect(global.navigator.clipboard.write).not.toHaveBeenCalled();
+    expect(result.message).toBe('Screenshot saved to downloads folder!');
+    if (global.navigator.clipboard?.write) {
+      expect(global.navigator.clipboard.write).not.toHaveBeenCalled();
+    }
   });
 
   test('should handle clipboard failure gracefully while maintaining download', async () => {
-    // Mock clipboard failure
-    global.navigator.clipboard.write.mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'));
+    // Reset and mock clipboard failure
+    global.navigator.clipboard = {
+      write: jest.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
+    };
     
     await screenshotSelector.init('black', true);
     
@@ -297,8 +333,8 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
     expect(result.downloadSuccess).toBe(true);
     expect(result.clipboardResult.success).toBe(false);
     expect(result.clipboardResult.errorType).toBe('permission_denied');
-    expect(result.message).toContain('Screenshot downloaded successfully!');
-    expect(result.message).toContain('Clipboard copy failed');
+    expect(result.message).toContain('Screenshot saved successfully!');
+    expect(result.message).toContain('permission denied');
   });
 
   test('should handle clipboard API unavailable scenario', async () => {
@@ -313,8 +349,8 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
     expect(result.downloadSuccess).toBe(true);
     expect(result.clipboardResult.success).toBe(false);
     expect(result.clipboardResult.errorType).toBe('api_unavailable');
-    expect(result.message).toContain('Screenshot downloaded successfully!');
-    expect(result.message).toContain('Clipboard copy failed');
+    expect(result.message).toContain('Screenshot saved successfully!');
+    expect(result.message).toContain('clipboard');
   });
 });
 
