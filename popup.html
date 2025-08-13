@@ -277,7 +277,7 @@
 
   <div class="setting-group">
     <div class="toggle-container">
-      <label for="save-to-pc-toggle" class="toggle-label">
+      <label class="toggle-label">
         Save to PC
         <div class="tooltip">
           <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show save to PC feature information">?</div>
@@ -292,7 +292,7 @@
           </div>
         </div>
       </label>
-      <div class="toggle-switch">
+      <label class="toggle-switch" for="save-to-pc-toggle">
         <input 
           type="checkbox" 
           id="save-to-pc-toggle" 
@@ -301,7 +301,7 @@
           aria-label="Toggle save screenshot to PC"
         >
         <span class="toggle-slider" role="presentation"></span>
-      </div>
+      </label>
     </div>
     <div id="save-to-pc-help" class="toggle-help">
       Automatically download screenshots as PNG files to your computer. Hover over the "?" for more details.
@@ -310,7 +310,7 @@
 
   <div class="setting-group">
     <div class="toggle-container">
-      <label for="clipboard-toggle" class="toggle-label">
+      <label class="toggle-label">
         Copy to Clipboard
         <div class="tooltip">
           <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show clipboard feature information">?</div>
@@ -325,7 +325,7 @@
           </div>
         </div>
       </label>
-      <div class="toggle-switch">
+      <label class="toggle-switch" for="clipboard-toggle">
         <input 
           type="checkbox" 
           id="clipboard-toggle" 
@@ -334,7 +334,7 @@
           aria-label="Toggle copy screenshot to clipboard"
         >
         <span class="toggle-slider" role="presentation"></span>
-      </div>
+      </label>
     </div>
     <div id="clipboard-help" class="toggle-help">
       Automatically copy screenshots to clipboard for quick pasting. Hover over the "?" for more details.
