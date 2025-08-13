@@ -1,0 +1,37 @@
+{
+  "name": "full-screenshot-selector-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Full Screenshot Selector Chrome Extension clipboard functionality",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:clipboard": "jest tests/clipboard-functionality.test.js",
+    "test:persistence": "jest tests/preference-persistence.test.js",
+    "test:integration": "jest tests/integration-scenarios.test.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "collectCoverageFrom": [
+      "content.js",
+      "popup.js",
+      "!node_modules/**"
+    ],
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}
