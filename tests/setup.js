@@ -3,6 +3,32 @@
  * Provides common mocks and utilities for all test files
  */
 
+// Keep global and window navigator in sync regardless of direct reassignment
+(() => {
+  try {
+    let navigatorStore = (typeof global !== 'undefined' && global.navigator) || (typeof window !== 'undefined' && window.navigator) || {};
+    if (typeof global !== 'undefined') {
+      Object.defineProperty(global, 'navigator', {
+        configurable: true,
+        get: () => navigatorStore,
+        set: (val) => {
+          navigatorStore = val || {};
+          if (typeof window !== 'undefined') {
+            try { window.navigator = navigatorStore; } catch (_) {}
+          }
+        }
+      });
+    }
+    if (typeof window !== 'undefined') {
+      Object.defineProperty(window, 'navigator', {
+        configurable: true,
+        get: () => navigatorStore,
+        set: (val) => { navigatorStore = val || {}; }
+      });
+    }
+  } catch (_) {}
+})();
+
 // Global test utilities
 global.createMockBlob = (data = 'mock data', type = 'image/png', size = 1024) => {
   const blob = new Blob([data], { type });
@@ -56,30 +82,39 @@ global.createMockElement = (options = {}) => {
 
 // Mock Chrome extension APIs consistently
 global.mockChromeAPIs = () => {
+  const existingChrome = global.chrome || {};
+  const existingStorage = (existingChrome.storage && existingChrome.storage.sync) || {};
+  const existingRuntime = existingChrome.runtime || {};
+  const existingTabs = existingChrome.tabs || {};
+
   global.chrome = {
     storage: {
       sync: {
-        get: jest.fn().mockResolvedValue({}),
-        set: jest.fn().mockResolvedValue()
+        get: existingStorage.get || jest.fn().mockResolvedValue({}),
+        set: existingStorage.set || jest.fn().mockResolvedValue()
       }
     },
     runtime: {
-      sendMessage: jest.fn().mockResolvedValue(),
+      sendMessage: existingRuntime.sendMessage || jest.fn().mockResolvedValue(),
       onMessage: {
-        addListener: jest.fn()
+        addListener: (existingRuntime.onMessage && existingRuntime.onMessage.addListener) || jest.fn()
       }
     },
     tabs: {
-      query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
-      sendMessage: jest.fn().mockResolvedValue()
+      query: existingTabs.query || jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
+      sendMessage: existingTabs.sendMessage || jest.fn().mockResolvedValue()
     }
   };
 };
 
 // Mock DOM APIs consistently
 global.mockDOMAPIs = () => {
-  global.document = {
-    createElement: jest.fn(() => ({
+  // Document
+  const existingDocument = global.document || {};
+  const existingCreateElement = existingDocument.createElement;
+  global.document = existingDocument;
+  if (!global.document.createElement) {
+    global.document.createElement = jest.fn(() => ({
       style: {},
       classList: { add: jest.fn(), remove: jest.fn() },
       appendChild: jest.fn(),
@@ -92,80 +127,105 @@ global.mockDOMAPIs = () => {
       className: '',
       checked: false,
       value: ''
-    })),
-    head: { appendChild: jest.fn() },
-    body: { appendChild: jest.fn() },
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    querySelectorAll: jest.fn(() => []),
-    getElementById: jest.fn(() => null)
-  };
+    }));
+  }
+  if (!global.document.head) global.document.head = { appendChild: jest.fn() };
+  if (!global.document.body) global.document.body = { appendChild: jest.fn() };
+  if (!global.document.addEventListener) global.document.addEventListener = jest.fn();
+  if (!global.document.removeEventListener) global.document.removeEventListener = jest.fn();
+  if (!global.document.querySelectorAll) global.document.querySelectorAll = jest.fn(() => []);
+  if (!global.document.getElementById) global.document.getElementById = jest.fn(() => null);
 
-  global.window = {
-    getComputedStyle: jest.fn(() => ({})),
-    devicePixelRatio: 2,
-    isSecureContext: true,
-    CSS: { escape: jest.fn(str => str) },
-    setTimeout: jest.fn((fn, delay) => {
+  // Window
+  const existingWindow = global.window || {};
+  global.window = existingWindow;
+  // Ensure a shared navigator reference exists early
+  if (!global.navigator) global.navigator = (existingWindow && existingWindow.navigator) || {};
+  if (!global.window.navigator) global.window.navigator = global.navigator;
+  if (!global.window.getComputedStyle) global.window.getComputedStyle = jest.fn(() => ({}));
+  if (typeof global.window.devicePixelRatio === 'undefined') global.window.devicePixelRatio = 2;
+  if (typeof global.window.isSecureContext === 'undefined') global.window.isSecureContext = true;
+  if (!global.window.CSS) global.window.CSS = { escape: jest.fn(str => str) };
+  if (!global.window.setTimeout) {
+    global.window.setTimeout = jest.fn((fn, delay) => {
       if (delay === 0) fn();
       return 1;
-    }),
-    clearTimeout: jest.fn(),
-    close: jest.fn()
-  };
+    });
+  }
+  if (!global.window.clearTimeout) global.window.clearTimeout = jest.fn();
+  if (!global.window.close) global.window.close = jest.fn();
 };
 
 // Mock clipboard APIs with different scenarios
 global.mockClipboardAPI = (scenario = 'supported') => {
   switch (scenario) {
-    case 'supported':
-      global.navigator = {
-        clipboard: {
-          write: jest.fn().mockResolvedValue()
-        }
-      };
-      global.window.ClipboardItem = jest.fn();
-      global.window.isSecureContext = true;
+    case 'supported': {
+      const existingNavigator = global.navigator || {};
+      const existingClipboard = existingNavigator.clipboard || {};
+      if (!existingClipboard.write || !jest.isMockFunction?.(existingClipboard.write)) {
+        existingClipboard.write = jest.fn().mockResolvedValue();
+      }
+      const mergedNavigator = { ...existingNavigator, clipboard: existingClipboard };
+      global.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      if (!global.window.ClipboardItem) global.window.ClipboardItem = jest.fn();
+      if (typeof global.window.isSecureContext === 'undefined') global.window.isSecureContext = true;
       break;
-      
+    }
     case 'no-clipboard':
       global.navigator = {};
+      if (!global.window) global.window = {};
+      global.window.navigator = global.navigator;
       break;
-      
-    case 'no-clipboarditem':
-      global.navigator = {
-        clipboard: { write: jest.fn() }
-      };
+    case 'no-clipboarditem': {
+      const existingNavigator = global.navigator || {};
+      const clipboard = existingNavigator.clipboard || { write: jest.fn() };
+      const mergedNavigator = { ...existingNavigator, clipboard };
+      global.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
       global.window.ClipboardItem = undefined;
       break;
-      
-    case 'insecure-context':
-      global.navigator = {
-        clipboard: { write: jest.fn() }
-      };
-      global.window.ClipboardItem = jest.fn();
+    }
+    case 'insecure-context': {
+      const existingNavigator = global.navigator || {};
+      const clipboard = existingNavigator.clipboard || { write: jest.fn() };
+      const mergedNavigator = { ...existingNavigator, clipboard };
+      global.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.ClipboardItem = global.window.ClipboardItem || jest.fn();
       global.window.isSecureContext = false;
       break;
-      
-    case 'permission-denied':
-      global.navigator = {
-        clipboard: {
-          write: jest.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
-        }
-      };
-      global.window.ClipboardItem = jest.fn();
+    }
+    case 'permission-denied': {
+      const existingNavigator = global.navigator || {};
+      const clipboard = { write: jest.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError')) };
+      const mergedNavigator = { ...existingNavigator, clipboard };
+      global.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.ClipboardItem = global.window.ClipboardItem || jest.fn();
       global.window.isSecureContext = true;
       break;
-      
-    case 'security-error':
-      global.navigator = {
-        clipboard: {
-          write: jest.fn().mockRejectedValue(new DOMException('Security error', 'SecurityError'))
-        }
-      };
-      global.window.ClipboardItem = jest.fn();
+    }
+    case 'security-error': {
+      const existingNavigator = global.navigator || {};
+      const clipboard = { write: jest.fn().mockRejectedValue(new DOMException('Security error', 'SecurityError')) };
+      const mergedNavigator = { ...existingNavigator, clipboard };
+      global.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.navigator = mergedNavigator;
+      if (!global.window) global.window = {};
+      global.window.ClipboardItem = global.window.ClipboardItem || jest.fn();
       global.window.isSecureContext = true;
       break;
+    }
   }
 };
 

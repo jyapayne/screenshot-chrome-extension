@@ -163,6 +163,10 @@ describe('Save to PC and Clipboard Combinations', () => {
     // Reset mocks
     mockCreateElement.mockClear();
     mockCreateElement.mockReturnValue(mockLink);
+    // Ensure our mock is used even if the test environment adjusted document
+    if (global.document) {
+      global.document.createElement = mockCreateElement;
+    }
     mockLink.click.mockClear();
     
     // Setup clipboard API mocks
