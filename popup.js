@@ -145,8 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check current state
   checkSelectorState();
 
-  // Handle tooltip keyboard navigation
-  setupTooltipAccessibility();
+  // Tooltips removed
 
   function toggleButtons(isActive) {
     if (isActive) {
@@ -191,50 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function setupTooltipAccessibility() {
-    const tooltips = document.querySelectorAll('.tooltip');
-    
-    tooltips.forEach(tooltip => {
-      const tooltipIcon = tooltip.querySelector('.tooltip-icon');
-      const tooltipContent = tooltip.querySelector('.tooltip-content');
-      
-      if (!tooltipIcon || !tooltipContent) return;
-
-      // Handle keyboard events for tooltip
-      tooltipIcon.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          // Toggle tooltip visibility on Enter/Space
-          const isVisible = tooltipContent.style.visibility === 'visible';
-          tooltipContent.style.visibility = isVisible ? 'hidden' : 'visible';
-          tooltipContent.style.opacity = isVisible ? '0' : '1';
-        } else if (e.key === 'Escape') {
-          // Hide tooltip on Escape
-          tooltipContent.style.visibility = 'hidden';
-          tooltipContent.style.opacity = '0';
-        }
-      });
-
-      // Hide tooltip when clicking outside
-      document.addEventListener('click', (e) => {
-        if (!tooltip.contains(e.target)) {
-          tooltipContent.style.visibility = 'hidden';
-          tooltipContent.style.opacity = '0';
-        }
-      });
-
-      // Handle focus loss
-      tooltipIcon.addEventListener('blur', (e) => {
-        // Small delay to allow for focus to move to tooltip content if needed
-        setTimeout(() => {
-          if (!tooltipIcon.matches(':focus-within')) {
-            tooltipContent.style.visibility = 'hidden';
-            tooltipContent.style.opacity = '0';
-          }
-        }, 100);
-      });
-    });
-  }
+  // Tooltips removed: no setup needed
 });
 
 // Listen for messages from content script

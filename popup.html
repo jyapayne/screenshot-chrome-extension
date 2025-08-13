@@ -84,7 +84,6 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
     }
 
     .toggle-label {
@@ -151,69 +150,6 @@
       line-height: 1.3;
     }
 
-    .tooltip {
-      position: relative;
-      display: inline-block;
-      margin-left: 6px;
-      cursor: help;
-    }
-
-    .tooltip-icon {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #6c757d;
-      color: white;
-      font-size: 10px;
-      font-weight: bold;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-    }
-
-    .tooltip-content {
-      visibility: hidden;
-      width: 280px;
-      background-color: #333;
-      color: #fff;
-      text-align: left;
-      border-radius: 6px;
-      padding: 12px;
-      position: absolute;
-      z-index: 1000;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -140px;
-      opacity: 0;
-      transition: opacity 0.3s, visibility 0.3s;
-      font-size: 12px;
-      line-height: 1.4;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .tooltip-content::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -5px;
-      border-width: 5px;
-      border-style: solid;
-      border-color: #333 transparent transparent transparent;
-    }
-
-    .tooltip:hover .tooltip-content,
-    .tooltip:focus-within .tooltip-content {
-      visibility: visible;
-      opacity: 1;
-    }
-
-    .tooltip-icon:focus {
-      outline: 2px solid #007bff;
-      outline-offset: 2px;
-    }
-
     .shortcut-info {
       font-size: 11px;
       color: #666;
@@ -277,21 +213,7 @@
 
   <div class="setting-group">
     <div class="toggle-container">
-      <label class="toggle-label">
-        Save to PC
-        <div class="tooltip">
-          <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show save to PC feature information">?</div>
-          <div class="tooltip-content" role="tooltip">
-            <strong>Save to PC Feature</strong><br>
-            When enabled, screenshots are automatically downloaded as PNG files to your default downloads folder.<br><br>
-            <strong>File Details:</strong><br>
-            • Format: PNG with timestamp<br>
-            • Location: Browser's default download folder<br>
-            • Naming: screenshot-YYYY-MM-DD-HH-MM-SS.png<br><br>
-            <strong>Note:</strong> You can use this independently of the clipboard feature for maximum workflow flexibility.
-          </div>
-        </div>
-      </label>
+      <label class="toggle-label">Save to PC</label>
       <label class="toggle-switch" for="save-to-pc-toggle">
         <input 
           type="checkbox" 
@@ -304,27 +226,13 @@
       </label>
     </div>
     <div id="save-to-pc-help" class="toggle-help">
-      Automatically download screenshots as PNG files to your computer. Hover over the "?" for more details.
+      Automatically download screenshots as PNG files to your default downloads folder.
     </div>
   </div>
 
   <div class="setting-group">
     <div class="toggle-container">
-      <label class="toggle-label">
-        Copy to Clipboard
-        <div class="tooltip">
-          <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show clipboard feature information">?</div>
-          <div class="tooltip-content" role="tooltip">
-            <strong>Clipboard Feature</strong><br>
-            When enabled, screenshots are automatically copied to your clipboard for quick pasting into other applications.<br><br>
-            <strong>Browser Requirements:</strong><br>
-            • Chrome 76+, Firefox 87+, Safari 13.1+<br>
-            • Secure connection (HTTPS)<br>
-            • Clipboard permissions may be required<br><br>
-            <strong>Note:</strong> You can use this independently of the save to PC feature for maximum workflow flexibility.
-          </div>
-        </div>
-      </label>
+      <label class="toggle-label">Copy to Clipboard</label>
       <label class="toggle-switch" for="clipboard-toggle">
         <input 
           type="checkbox" 
@@ -337,7 +245,7 @@
       </label>
     </div>
     <div id="clipboard-help" class="toggle-help">
-      Automatically copy screenshots to clipboard for quick pasting. Hover over the "?" for more details.
+      Automatically copy screenshots to your clipboard for quick pasting.
     </div>
   </div>
 
