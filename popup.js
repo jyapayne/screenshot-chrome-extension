@@ -1,19 +1,28 @@
 // Popup script for Chrome extension
 document.addEventListener('DOMContentLoaded', async () => {
   const backgroundSelect = document.getElementById('background-select');
+  const clipboardToggle = document.getElementById('clipboard-toggle');
   const startBtn = document.getElementById('start-selector');
   const stopBtn = document.getElementById('stop-selector');
   const status = document.getElementById('status');
 
-  // Load saved background preference
-  const saved = await chrome.storage.sync.get(['backgroundPreference']);
+  // Load saved preferences
+  const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard']);
   if (saved.backgroundPreference) {
     backgroundSelect.value = saved.backgroundPreference;
   }
+  
+  // Set clipboard preference (default to true if not set)
+  clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
 
   // Save background preference when changed
   backgroundSelect.addEventListener('change', () => {
     chrome.storage.sync.set({ backgroundPreference: backgroundSelect.value });
+  });
+
+  // Save clipboard preference when changed
+  clipboardToggle.addEventListener('change', () => {
+    chrome.storage.sync.set({ copyToClipboard: clipboardToggle.checked });
   });
 
   // Start selector
@@ -34,7 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await chrome.tabs.sendMessage(tab.id, {
         action: 'startSelector',
-        background: backgroundSelect.value
+        background: backgroundSelect.value,
+        copyToClipboard: clipboardToggle.checked
       });
 
       showStatus('Selector activated! Hover over elements and click to capture.', 'success');
@@ -68,6 +78,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check current state
   checkSelectorState();
+
+  // Handle tooltip keyboard navigation
+  setupTooltipAccessibility();
 
   function toggleButtons(isActive) {
     if (isActive) {
@@ -110,6 +123,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Content script not ready or selector not active
       console.log('Content script not ready or selector inactive:', error.message);
     }
+  }
+
+  function setupTooltipAccessibility() {
+    const tooltipIcon = document.querySelector('.tooltip-icon');
+    const tooltipContent = document.querySelector('.tooltip-content');
+    
+    if (!tooltipIcon || !tooltipContent) return;
+
+    // Handle keyboard events for tooltip
+    tooltipIcon.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        // Toggle tooltip visibility on Enter/Space
+        const isVisible = tooltipContent.style.visibility === 'visible';
+        tooltipContent.style.visibility = isVisible ? 'hidden' : 'visible';
+        tooltipContent.style.opacity = isVisible ? '0' : '1';
+      } else if (e.key === 'Escape') {
+        // Hide tooltip on Escape
+        tooltipContent.style.visibility = 'hidden';
+        tooltipContent.style.opacity = '0';
+      }
+    });
+
+    // Hide tooltip when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!tooltipIcon.contains(e.target)) {
+        tooltipContent.style.visibility = 'hidden';
+        tooltipContent.style.opacity = '0';
+      }
+    });
+
+    // Handle focus loss
+    tooltipIcon.addEventListener('blur', (e) => {
+      // Small delay to allow for focus to move to tooltip content if needed
+      setTimeout(() => {
+        if (!tooltipIcon.matches(':focus-within')) {
+          tooltipContent.style.visibility = 'hidden';
+          tooltipContent.style.opacity = '0';
+        }
+      }, 100);
+    });
   }
 });
 

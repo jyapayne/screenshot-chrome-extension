@@ -80,6 +80,140 @@
       background: #545b62;
     }
 
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .toggle-label {
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #007bff;
+    }
+
+    input:focus + .toggle-slider {
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .toggle-help {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 6px;
+      cursor: help;
+    }
+
+    .tooltip-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #6c757d;
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .tooltip-content {
+      visibility: hidden;
+      width: 280px;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 12px;
+      position: absolute;
+      z-index: 1000;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -140px;
+      opacity: 0;
+      transition: opacity 0.3s, visibility 0.3s;
+      font-size: 12px;
+      line-height: 1.4;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .tooltip-content::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #333 transparent transparent transparent;
+    }
+
+    .tooltip:hover .tooltip-content,
+    .tooltip:focus-within .tooltip-content {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .tooltip-icon:focus {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+    }
+
     .shortcut-info {
       font-size: 11px;
       color: #666;
@@ -122,6 +256,39 @@
       <option value="transparent">Transparent</option>
       <option value="white">White</option>
     </select>
+  </div>
+
+  <div class="setting-group">
+    <div class="toggle-container">
+      <label for="clipboard-toggle" class="toggle-label">
+        Copy to Clipboard
+        <div class="tooltip">
+          <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show clipboard feature information">?</div>
+          <div class="tooltip-content" role="tooltip">
+            <strong>Clipboard Feature</strong><br>
+            When enabled, screenshots are automatically copied to your clipboard for quick pasting into other applications.<br><br>
+            <strong>Browser Requirements:</strong><br>
+            • Chrome 76+, Firefox 87+, Safari 13.1+<br>
+            • Secure connection (HTTPS)<br>
+            • Clipboard permissions may be required<br><br>
+            <strong>Note:</strong> Screenshots are always downloaded as files regardless of this setting.
+          </div>
+        </div>
+      </label>
+      <div class="toggle-switch">
+        <input 
+          type="checkbox" 
+          id="clipboard-toggle" 
+          checked
+          aria-describedby="clipboard-help"
+          aria-label="Toggle copy screenshot to clipboard"
+        >
+        <span class="toggle-slider" role="presentation"></span>
+      </div>
+    </div>
+    <div id="clipboard-help" class="toggle-help">
+      Automatically copy screenshots to clipboard for quick pasting. Hover over the "?" for more details.
+    </div>
   </div>
 
   <button id="start-selector" class="btn btn-primary">
