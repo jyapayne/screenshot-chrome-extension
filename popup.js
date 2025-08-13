@@ -2,18 +2,43 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const backgroundSelect = document.getElementById('background-select');
   const clipboardToggle = document.getElementById('clipboard-toggle');
+  const saveToPcToggle = document.getElementById('save-to-pc-toggle');
   const startBtn = document.getElementById('start-selector');
   const stopBtn = document.getElementById('stop-selector');
   const status = document.getElementById('status');
+  const validationWarning = document.getElementById('validation-warning');
 
   // Load saved preferences
-  const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard']);
+  const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
   if (saved.backgroundPreference) {
     backgroundSelect.value = saved.backgroundPreference;
   }
   
   // Set clipboard preference (default to true if not set)
   clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
+  
+  // Set save to PC preference (default to true if not set to maintain existing behavior)
+  saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
+
+  // Validation function to ensure at least one output method is enabled
+  function validateOutputMethods() {
+    const hasValidOutput = clipboardToggle.checked || saveToPcToggle.checked;
+    
+    if (hasValidOutput) {
+      validationWarning.style.display = 'none';
+      startBtn.disabled = false;
+      startBtn.setAttribute('aria-describedby', '');
+    } else {
+      validationWarning.style.display = 'block';
+      startBtn.disabled = true;
+      startBtn.setAttribute('aria-describedby', 'validation-warning');
+    }
+    
+    return hasValidOutput;
+  }
+
+  // Initial validation check
+  validateOutputMethods();
 
   // Save background preference when changed
   backgroundSelect.addEventListener('change', () => {
@@ -23,10 +48,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Save clipboard preference when changed
   clipboardToggle.addEventListener('change', () => {
     chrome.storage.sync.set({ copyToClipboard: clipboardToggle.checked });
+    validateOutputMethods();
+  });
+
+  // Save save to PC preference when changed
+  saveToPcToggle.addEventListener('change', () => {
+    chrome.storage.sync.set({ saveToPc: saveToPcToggle.checked });
+    validateOutputMethods();
   });
 
   // Start selector
   startBtn.addEventListener('click', async () => {
+    // Validate output methods before proceeding
+    if (!validateOutputMethods()) {
+      showStatus('Error: Please enable at least one output method (Save to PC or Copy to Clipboard) to capture screenshots.', 'error');
+      return;
+    }
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     // Check if page is compatible
@@ -44,10 +82,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.tabs.sendMessage(tab.id, {
         action: 'startSelector',
         background: backgroundSelect.value,
-        copyToClipboard: clipboardToggle.checked
+        copyToClipboard: clipboardToggle.checked,
+        saveToPc: saveToPcToggle.checked
       });
 
-      showStatus('Selector activated! Hover over elements and click to capture.', 'success');
+      // Generate activation message based on enabled operations
+      let activationMessage = 'Selector activated! Hover over elements and click to capture.';
+      
+      if (saveToPcToggle.checked && clipboardToggle.checked) {
+        activationMessage = 'Selector activated! Screenshots will be saved and copied to clipboard.';
+      } else if (saveToPcToggle.checked && !clipboardToggle.checked) {
+        activationMessage = 'Selector activated! Screenshots will be saved to downloads folder.';
+      } else if (!saveToPcToggle.checked && clipboardToggle.checked) {
+        activationMessage = 'Selector activated! Screenshots will be copied to clipboard only.';
+      }
+      
+      showStatus(activationMessage, 'success');
       toggleButtons(true);
 
       // Auto-close popup after starting
@@ -55,11 +105,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
       console.error('Full error details:', error);
+      
+      let errorMessage = 'Error: Could not activate on this page.';
+      
       if (error.message.includes('Could not establish connection')) {
-        showStatus('Error: Content script not loaded. Try refreshing the page.', 'error');
-      } else {
-        showStatus('Error: Could not activate on this page.', 'error');
+        errorMessage = 'Error: Content script not loaded. Try refreshing the page and try again.';
+      } else if (error.message.includes('permission')) {
+        errorMessage = 'Error: Permission denied. Check if the page allows extensions.';
+      } else if (error.message.includes('protocol')) {
+        errorMessage = 'Error: Cannot capture screenshots on this page type (chrome://, file://, etc.).';
       }
+      
+      // Add context about what operations were attempted
+      if (saveToPcToggle.checked && clipboardToggle.checked) {
+        errorMessage += ' Neither file download nor clipboard copy could be set up.';
+      } else if (saveToPcToggle.checked && !clipboardToggle.checked) {
+        errorMessage += ' File download could not be set up.';
+      } else if (!saveToPcToggle.checked && clipboardToggle.checked) {
+        errorMessage += ' Clipboard copy could not be set up.';
+      }
+      
+      showStatus(errorMessage, 'error');
     }
   });
 
@@ -126,43 +192,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function setupTooltipAccessibility() {
-    const tooltipIcon = document.querySelector('.tooltip-icon');
-    const tooltipContent = document.querySelector('.tooltip-content');
+    const tooltips = document.querySelectorAll('.tooltip');
     
-    if (!tooltipIcon || !tooltipContent) return;
+    tooltips.forEach(tooltip => {
+      const tooltipIcon = tooltip.querySelector('.tooltip-icon');
+      const tooltipContent = tooltip.querySelector('.tooltip-content');
+      
+      if (!tooltipIcon || !tooltipContent) return;
 
-    // Handle keyboard events for tooltip
-    tooltipIcon.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        // Toggle tooltip visibility on Enter/Space
-        const isVisible = tooltipContent.style.visibility === 'visible';
-        tooltipContent.style.visibility = isVisible ? 'hidden' : 'visible';
-        tooltipContent.style.opacity = isVisible ? '0' : '1';
-      } else if (e.key === 'Escape') {
-        // Hide tooltip on Escape
-        tooltipContent.style.visibility = 'hidden';
-        tooltipContent.style.opacity = '0';
-      }
-    });
-
-    // Hide tooltip when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!tooltipIcon.contains(e.target)) {
-        tooltipContent.style.visibility = 'hidden';
-        tooltipContent.style.opacity = '0';
-      }
-    });
-
-    // Handle focus loss
-    tooltipIcon.addEventListener('blur', (e) => {
-      // Small delay to allow for focus to move to tooltip content if needed
-      setTimeout(() => {
-        if (!tooltipIcon.matches(':focus-within')) {
+      // Handle keyboard events for tooltip
+      tooltipIcon.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          // Toggle tooltip visibility on Enter/Space
+          const isVisible = tooltipContent.style.visibility === 'visible';
+          tooltipContent.style.visibility = isVisible ? 'hidden' : 'visible';
+          tooltipContent.style.opacity = isVisible ? '0' : '1';
+        } else if (e.key === 'Escape') {
+          // Hide tooltip on Escape
           tooltipContent.style.visibility = 'hidden';
           tooltipContent.style.opacity = '0';
         }
-      }, 100);
+      });
+
+      // Hide tooltip when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!tooltip.contains(e.target)) {
+          tooltipContent.style.visibility = 'hidden';
+          tooltipContent.style.opacity = '0';
+        }
+      });
+
+      // Handle focus loss
+      tooltipIcon.addEventListener('blur', (e) => {
+        // Small delay to allow for focus to move to tooltip content if needed
+        setTimeout(() => {
+          if (!tooltipIcon.matches(':focus-within')) {
+            tooltipContent.style.visibility = 'hidden';
+            tooltipContent.style.opacity = '0';
+          }
+        }, 100);
+      });
     });
   }
 });
@@ -173,15 +243,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const startBtn = document.getElementById('start-selector');
     const stopBtn = document.getElementById('stop-selector');
     const status = document.getElementById('status');
+    const saveToPcToggle = document.getElementById('save-to-pc-toggle');
+    const clipboardToggle = document.getElementById('clipboard-toggle');
 
     startBtn.style.display = 'block';
     stopBtn.style.display = 'none';
 
     if (message.reason === 'screenshot-taken') {
-      status.textContent = 'Screenshot captured!';
+      // Generate success message based on current toggle states
+      let successMessage = 'Screenshot captured!';
+      
+      if (saveToPcToggle.checked && clipboardToggle.checked) {
+        successMessage = 'Screenshot saved and copied to clipboard!';
+      } else if (saveToPcToggle.checked && !clipboardToggle.checked) {
+        successMessage = 'Screenshot saved to downloads folder!';
+      } else if (!saveToPcToggle.checked && clipboardToggle.checked) {
+        successMessage = 'Screenshot copied to clipboard!';
+      }
+      
+      status.textContent = successMessage;
       status.className = 'status success';
       status.style.display = 'block';
       setTimeout(() => status.style.display = 'none', 2000);
+    } else if (message.reason === 'screenshot-failed') {
+      // Handle screenshot failure
+      let failureMessage = 'Screenshot capture failed. Please try again.';
+      
+      if (saveToPcToggle.checked && clipboardToggle.checked) {
+        failureMessage = 'Screenshot capture failed. Neither file download nor clipboard copy could be completed.';
+      } else if (saveToPcToggle.checked && !clipboardToggle.checked) {
+        failureMessage = 'Screenshot capture failed. File download could not be completed.';
+      } else if (!saveToPcToggle.checked && clipboardToggle.checked) {
+        failureMessage = 'Screenshot capture failed. Clipboard copy could not be completed.';
+      }
+      
+      status.textContent = failureMessage;
+      status.className = 'status error';
+      status.style.display = 'block';
+      setTimeout(() => status.style.display = 'none', 3000);
     }
   }
 });

@@ -241,6 +241,23 @@
       background: #f8d7da;
       color: #721c24;
     }
+
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .btn:disabled {
+      background: #6c757d;
+      color: #fff;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .btn:disabled:hover {
+      background: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -260,6 +277,39 @@
 
   <div class="setting-group">
     <div class="toggle-container">
+      <label for="save-to-pc-toggle" class="toggle-label">
+        Save to PC
+        <div class="tooltip">
+          <div class="tooltip-icon" tabindex="0" role="button" aria-label="Show save to PC feature information">?</div>
+          <div class="tooltip-content" role="tooltip">
+            <strong>Save to PC Feature</strong><br>
+            When enabled, screenshots are automatically downloaded as PNG files to your default downloads folder.<br><br>
+            <strong>File Details:</strong><br>
+            • Format: PNG with timestamp<br>
+            • Location: Browser's default download folder<br>
+            • Naming: screenshot-YYYY-MM-DD-HH-MM-SS.png<br><br>
+            <strong>Note:</strong> You can use this independently of the clipboard feature for maximum workflow flexibility.
+          </div>
+        </div>
+      </label>
+      <div class="toggle-switch">
+        <input 
+          type="checkbox" 
+          id="save-to-pc-toggle" 
+          checked
+          aria-describedby="save-to-pc-help"
+          aria-label="Toggle save screenshot to PC"
+        >
+        <span class="toggle-slider" role="presentation"></span>
+      </div>
+    </div>
+    <div id="save-to-pc-help" class="toggle-help">
+      Automatically download screenshots as PNG files to your computer. Hover over the "?" for more details.
+    </div>
+  </div>
+
+  <div class="setting-group">
+    <div class="toggle-container">
       <label for="clipboard-toggle" class="toggle-label">
         Copy to Clipboard
         <div class="tooltip">
@@ -271,7 +321,7 @@
             • Chrome 76+, Firefox 87+, Safari 13.1+<br>
             • Secure connection (HTTPS)<br>
             • Clipboard permissions may be required<br><br>
-            <strong>Note:</strong> Screenshots are always downloaded as files regardless of this setting.
+            <strong>Note:</strong> You can use this independently of the save to PC feature for maximum workflow flexibility.
           </div>
         </div>
       </label>
@@ -289,6 +339,10 @@
     <div id="clipboard-help" class="toggle-help">
       Automatically copy screenshots to clipboard for quick pasting. Hover over the "?" for more details.
     </div>
+  </div>
+
+  <div id="validation-warning" class="status warning" style="display: none;" role="alert" aria-live="polite">
+    ⚠️ Please enable at least one output method (Save to PC or Copy to Clipboard) to capture screenshots.
   </div>
 
   <button id="start-selector" class="btn btn-primary">

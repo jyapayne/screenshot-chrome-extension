@@ -7,9 +7,10 @@ class ScreenshotSelector {
     this.style = null;
     this.background = 'black';
     this.copyToClipboard = true; // Default to true
+    this.saveToPc = true; // Default to true for backward compatibility
   }
 
-  async init(background = 'black', copyToClipboard = true) {
+  async init(background = 'black', copyToClipboard = true, saveToPc = true) {
     if (this.isActive) {
       console.log('Screenshot selector already active');
       return;
@@ -17,6 +18,7 @@ class ScreenshotSelector {
 
     this.background = background;
     this.copyToClipboard = copyToClipboard;
+    this.saveToPc = saveToPc;
     this.isActive = true;
 
     this.createUI();
@@ -365,12 +367,25 @@ class ScreenshotSelector {
 
   async captureElement(element) {
     try {
-      // Determine loading message based on clipboard settings
+      // Determine loading message based on enabled operations
       let loadingMessage = 'Capturing screenshot...';
-      if (this.copyToClipboard) {
+      
+      if (this.saveToPc && this.copyToClipboard) {
+        // Both operations enabled
         const availability = this.checkClipboardAPIAvailability();
         if (availability.available) {
           loadingMessage = 'Capturing screenshot and preparing for clipboard...';
+        } else {
+          loadingMessage = 'Capturing screenshot for download... (Clipboard not available)';
+        }
+      } else if (this.saveToPc && !this.copyToClipboard) {
+        // Only save to PC enabled
+        loadingMessage = 'Capturing screenshot for download...';
+      } else if (!this.saveToPc && this.copyToClipboard) {
+        // Only clipboard enabled
+        const availability = this.checkClipboardAPIAvailability();
+        if (availability.available) {
+          loadingMessage = 'Capturing screenshot for clipboard...';
         } else {
           loadingMessage = 'Capturing screenshot... (Clipboard not available)';
         }
@@ -480,11 +495,13 @@ class ScreenshotSelector {
       // Restore original styles
       Object.assign(element.style, originalStyles);
 
-      // Always download the image first (core functionality)
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
-      link.download = `screenshot-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.png`;
-      link.click();
+      // Conditionally download the image based on saveToPc preference
+      if (this.saveToPc) {
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `screenshot-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.png`;
+        link.click();
+      }
 
       // Handle clipboard operations if enabled (after successful canvas generation and download)
       let clipboardResult = null;
@@ -513,26 +530,46 @@ class ScreenshotSelector {
         }
       }
 
-      // Generate user feedback message based on clipboard results
-      let successMessage = 'Screenshot downloaded successfully!';
+      // Generate user feedback message based on operation combinations
+      let successMessage = 'Screenshot captured!';
       let messageColor = 'rgba(39, 174, 96, 0.95)'; // Green for success
+      let messageIcon = '✅';
       
-      if (this.copyToClipboard) {
+      // Determine success message based on enabled operations
+      if (this.saveToPc && this.copyToClipboard) {
+        // Both operations enabled
         if (clipboardResult && clipboardResult.success) {
-          successMessage = 'Screenshot downloaded and copied to clipboard!';
-          // Keep green color for full success
+          successMessage = 'Screenshot saved and copied to clipboard!';
+          messageIcon = '✅';
         } else {
-          // Download succeeded but clipboard failed - provide specific error feedback
+          // Save succeeded but clipboard failed
           const errorMessage = this.getClipboardErrorMessage(clipboardResult);
-          successMessage = `Screenshot downloaded successfully! ${errorMessage}`;
+          successMessage = `Screenshot saved successfully! However, ${errorMessage.toLowerCase()}`;
           messageColor = 'rgba(243, 156, 18, 0.95)'; // Orange for partial success
+          messageIcon = '⚠️';
+        }
+      } else if (this.saveToPc && !this.copyToClipboard) {
+        // Only save to PC enabled
+        successMessage = 'Screenshot saved to downloads folder!';
+        messageIcon = '💾';
+      } else if (!this.saveToPc && this.copyToClipboard) {
+        // Only clipboard enabled
+        if (clipboardResult && clipboardResult.success) {
+          successMessage = 'Screenshot copied to clipboard!';
+          messageIcon = '📋';
+        } else {
+          // Clipboard failed - this is a complete failure since no other output method is enabled
+          const errorMessage = this.getClipboardErrorMessage(clipboardResult);
+          successMessage = `Screenshot capture failed: ${errorMessage}`;
+          messageColor = 'rgba(231, 76, 60, 0.95)'; // Red for failure
+          messageIcon = '❌';
         }
       }
 
       this.overlay.innerHTML = `
         <div style="position: fixed; top: 20px; left: 20px; background: ${messageColor}; color: white; padding: 12px 16px; border-radius: 8px; z-index: 2147483647; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span>✅</span>
+            <span>${messageIcon}</span>
             <span>${successMessage}</span>
           </div>
         </div>
@@ -546,21 +583,35 @@ class ScreenshotSelector {
     } catch (error) {
       console.error('Screenshot failed:', error);
       
-      // Provide specific error messages for screenshot failures
+      // Provide specific error messages for screenshot failures based on enabled operations
       let errorMessage = 'Screenshot capture failed. Please try again.';
+      let operationContext = '';
+      
+      // Add context about what operations were attempted
+      if (this.saveToPc && this.copyToClipboard) {
+        operationContext = ' Neither file download nor clipboard copy could be completed.';
+      } else if (this.saveToPc && !this.copyToClipboard) {
+        operationContext = ' File download could not be completed.';
+      } else if (!this.saveToPc && this.copyToClipboard) {
+        operationContext = ' Clipboard copy could not be completed.';
+      }
       
       if (error.message) {
         if (error.message.includes('html2canvas')) {
-          errorMessage = 'Screenshot rendering failed. Try selecting a different element or refresh the page.';
+          errorMessage = `Screenshot rendering failed. Try selecting a different element or refresh the page.${operationContext}`;
         } else if (error.message.includes('timeout')) {
-          errorMessage = 'Screenshot capture timed out. Try selecting a smaller area or simpler element.';
+          errorMessage = `Screenshot capture timed out. Try selecting a smaller area or simpler element.${operationContext}`;
         } else if (error.message.includes('network') || error.message.includes('CORS')) {
-          errorMessage = 'Screenshot failed: Some content is blocked by security restrictions.';
+          errorMessage = `Screenshot failed: Some content is blocked by security restrictions.${operationContext}`;
         } else if (error.message.includes('memory') || error.message.includes('quota')) {
-          errorMessage = 'Screenshot failed: Not enough memory. Try capturing a smaller area.';
+          errorMessage = `Screenshot failed: Not enough memory. Try capturing a smaller area.${operationContext}`;
         } else if (error.message.includes('canvas')) {
-          errorMessage = 'Screenshot failed: Unable to create image. Try a different element.';
+          errorMessage = `Screenshot failed: Unable to create image. Try a different element.${operationContext}`;
+        } else {
+          errorMessage = `Screenshot capture failed: ${error.message}${operationContext}`;
         }
+      } else {
+        errorMessage = `Screenshot capture failed. Please try again.${operationContext}`;
       }
       
       this.overlay.innerHTML = `
@@ -661,61 +712,62 @@ class ScreenshotSelector {
    */
   getClipboardErrorMessage(clipboardResult) {
     if (!clipboardResult || !clipboardResult.error) {
-      return 'Clipboard copy failed due to unknown error.';
+      return 'clipboard copy failed due to unknown error';
     }
 
     const errorType = clipboardResult.errorType;
     const errorMessage = clipboardResult.error;
 
     // Provide contextual error messages based on error type
+    // Note: These messages are designed to work in the context of "Screenshot saved successfully! However, [message]"
     switch (errorType) {
       case 'permission_denied':
-        return 'Clipboard copy failed: Permission denied. Please allow clipboard access in your browser settings.';
+        return 'clipboard copy failed: permission denied. Please allow clipboard access in your browser settings';
       
       case 'not_supported':
       case 'api_unavailable':
-        return 'Clipboard copy not available in this browser. Screenshot was still downloaded.';
+        return 'clipboard copy is not available in this browser';
       
       case 'security_error':
-        return 'Clipboard copy blocked by browser security. Try using HTTPS or check site permissions.';
+        return 'clipboard copy was blocked by browser security. Try using HTTPS or check site permissions';
       
       case 'size_limit':
       case 'quota_exceeded':
-        return 'Clipboard copy failed: Image too large. Try capturing a smaller area.';
+        return 'clipboard copy failed: image too large. Try capturing a smaller area';
       
       case 'timeout':
-        return 'Clipboard copy timed out. The image may be too large or complex.';
+        return 'clipboard copy timed out. The image may be too large or complex';
       
       case 'network_error':
-        return 'Clipboard copy failed due to network error. Please try again.';
+        return 'clipboard copy failed due to network error. Please try again';
       
       case 'canvas_conversion':
-        return 'Clipboard copy failed: Unable to prepare image. Try capturing a different element.';
+        return 'clipboard copy failed: unable to prepare image. Try capturing a different element';
       
       case 'clipboard_item_creation':
-        return 'Clipboard copy not supported: Your browser doesn\'t support image clipboard operations.';
+        return 'clipboard copy is not supported: your browser doesn\'t support image clipboard operations';
       
       case 'invalid_state':
-        return 'Clipboard copy failed: Browser clipboard is busy. Please try again.';
+        return 'clipboard copy failed: browser clipboard is busy. Please try again';
       
       case 'data_error':
-        return 'Clipboard copy failed: Invalid image data. Please try capturing again.';
+        return 'clipboard copy failed: invalid image data. Please try capturing again';
       
       case 'unexpected':
-        return 'Clipboard copy failed due to unexpected error. Screenshot was still downloaded.';
+        return 'clipboard copy failed due to unexpected error';
       
       default:
         // For unknown error types, try to extract meaningful info from the error message
         if (errorMessage.includes('permission') || errorMessage.includes('denied')) {
-          return 'Clipboard copy failed: Access denied. Check browser permissions.';
+          return 'clipboard copy failed: access denied. Check browser permissions';
         } else if (errorMessage.includes('not supported') || errorMessage.includes('unavailable')) {
-          return 'Clipboard copy not supported in this browser.';
+          return 'clipboard copy is not supported in this browser';
         } else if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
-          return 'Clipboard copy timed out. Try capturing a smaller area.';
+          return 'clipboard copy timed out. Try capturing a smaller area';
         } else if (errorMessage.includes('large') || errorMessage.includes('size')) {
-          return 'Clipboard copy failed: Image too large for clipboard.';
+          return 'clipboard copy failed: image too large for clipboard';
         } else {
-          return `Clipboard copy failed: ${errorMessage}`;
+          return `clipboard copy failed: ${errorMessage.toLowerCase()}`;
         }
     }
   }
@@ -893,7 +945,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'startSelector':
       // Extract clipboard preference from message, default to true for backward compatibility
       const copyToClipboard = message.copyToClipboard !== undefined ? message.copyToClipboard : true;
-      screenshotSelector.init(message.background, copyToClipboard);
+      // Extract save to PC preference from message, default to true for backward compatibility
+      const saveToPc = message.saveToPc !== undefined ? message.saveToPc : true;
+      screenshotSelector.init(message.background, copyToClipboard, saveToPc);
       sendResponse({ success: true });
       break;
 
