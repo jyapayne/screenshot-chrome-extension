@@ -53,8 +53,10 @@ global.window = {
   })
 };
 
-// Mock html2canvas
-global.html2canvas = jest.fn();
+// Mock html-to-image
+global.htmlToImage = {
+  toCanvas: jest.fn(),
+};
 
 describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
   let screenshotSelector;
@@ -63,7 +65,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Reset clipboard mock for each test
     if (!global.navigator) {
       global.navigator = {};
@@ -75,7 +77,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
       return { data, type: 'image/png' };
     });
     global.window.isSecureContext = true;
-    
+
     // Mock element to capture
     mockElement = {
       classList: {
@@ -102,7 +104,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
       toDataURL: jest.fn(() => 'data:image/png;base64,mockdata')
     };
 
-    global.html2canvas = jest.fn().mockResolvedValue(mockCanvas);
+    global.htmlToImage.toCanvas = jest.fn().mockResolvedValue(mockCanvas);
 
 
 
@@ -183,11 +185,17 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
       async captureElement(element) {
         try {
           // Generate canvas with background-specific settings
-          const canvas = await global.html2canvas(element, {
-            backgroundColor: this.background === 'transparent' ? null :
-                           this.background === 'white' ? '#ffffff' : '#000000',
-            useCORS: true,
-            allowTaint: false
+          const backgroundColor =
+            this.background === 'transparent'
+              ? undefined
+              : this.background === 'white'
+                ? '#ffffff'
+                : '#000000';
+
+          const canvas = await global.htmlToImage.toCanvas(element, {
+            backgroundColor,
+            pixelRatio: global.window.devicePixelRatio || 1,
+            cacheBust: false
           });
 
           // Always download first
@@ -205,7 +213,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
           // Update UI based on results (matching new message format)
           let successMessage = 'Screenshot captured!';
           let messageIcon = '✅';
-          
+
           if (this.saveToPc && this.copyToClipboard) {
             // Both operations enabled
             if (clipboardResult && clipboardResult.success) {
@@ -235,7 +243,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
           }
 
           this.overlay.innerHTML = `<div>${successMessage}</div>`;
-          
+
           return {
             success: true,
             downloadSuccess: true,
@@ -258,13 +266,11 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
   test('should capture with transparent background and copy to clipboard', async () => {
     await screenshotSelector.init('transparent', true);
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
-    expect(global.html2canvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
-      backgroundColor: null, // Transparent background
-      useCORS: true,
-      allowTaint: false
+    expect(global.htmlToImage.toCanvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
+      backgroundColor: undefined, // Transparent background
     }));
 
     expect(result.success).toBe(true);
@@ -275,13 +281,11 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
   test('should capture with black background and copy to clipboard', async () => {
     await screenshotSelector.init('black', true);
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
-    expect(global.html2canvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
+    expect(global.htmlToImage.toCanvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
       backgroundColor: '#000000', // Black background
-      useCORS: true,
-      allowTaint: false
     }));
 
     expect(result.success).toBe(true);
@@ -291,13 +295,11 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
   test('should capture with white background and copy to clipboard', async () => {
     await screenshotSelector.init('white', true);
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
-    expect(global.html2canvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
+    expect(global.htmlToImage.toCanvas).toHaveBeenCalledWith(mockElement, expect.objectContaining({
       backgroundColor: '#ffffff', // White background
-      useCORS: true,
-      allowTaint: false
     }));
 
     expect(result.success).toBe(true);
@@ -307,7 +309,7 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
 
   test('should capture without clipboard when disabled', async () => {
     await screenshotSelector.init('black', false, true); // saveToPc = true, copyToClipboard = false
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
     expect(result.success).toBe(true);
@@ -324,9 +326,9 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
     global.navigator.clipboard = {
       write: jest.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
     };
-    
+
     await screenshotSelector.init('black', true);
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
     expect(result.success).toBe(true);
@@ -340,9 +342,9 @@ describe('Integration Scenarios - Clipboard with Different Backgrounds', () => {
   test('should handle clipboard API unavailable scenario', async () => {
     // Mock clipboard API not available
     global.navigator.clipboard = undefined;
-    
+
     await screenshotSelector.init('transparent', true);
-    
+
     const result = await screenshotSelector.captureElement(mockElement);
 
     expect(result.success).toBe(true);
@@ -359,7 +361,7 @@ describe('Integration Scenarios - Complete Workflow', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock popup elements
     mockPopupElements = {
       clipboardToggle: { checked: true, addEventListener: jest.fn() },
@@ -399,18 +401,18 @@ describe('Integration Scenarios - Complete Workflow', () => {
         const backgroundSelect = document.getElementById('background-select');
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const startBtn = document.getElementById('start-selector');
-        
+
         // Load preferences
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard']);
         if (saved.backgroundPreference) {
           backgroundSelect.value = saved.backgroundPreference;
         }
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
-        
+
         // Start selector
         startBtn.addEventListener('click', async () => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          
+
           await chrome.tabs.sendMessage(tab.id, {
             action: 'startSelector',
             background: backgroundSelect.value,
@@ -466,12 +468,12 @@ describe('Integration Scenarios - Complete Workflow', () => {
           resolve();
         }
       });
-      
+
       const popupScript = `
         document.addEventListener('DOMContentLoaded', async () => {
           const backgroundSelect = document.getElementById('background-select');
           const clipboardToggle = document.getElementById('clipboard-toggle');
-          
+
           backgroundSelect.addEventListener('change', () => {
             chrome.storage.sync.set({ backgroundPreference: backgroundSelect.value });
           });
@@ -499,9 +501,9 @@ describe('Integration Scenarios - Complete Workflow', () => {
 
   test('should handle incompatible pages gracefully', async () => {
     // Mock incompatible page
-    global.chrome.tabs.query.mockResolvedValue([{ 
-      id: 123, 
-      url: 'chrome://settings/' 
+    global.chrome.tabs.query.mockResolvedValue([{
+      id: 123,
+      url: 'chrome://settings/'
     }]);
 
     let startButtonCallback;
@@ -514,7 +516,7 @@ describe('Integration Scenarios - Complete Workflow', () => {
       document.addEventListener('DOMContentLoaded', async () => {
         const startBtn = document.getElementById('start-selector');
         const status = document.getElementById('status');
-        
+
         startBtn.addEventListener('click', async () => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -527,7 +529,7 @@ describe('Integration Scenarios - Complete Workflow', () => {
             status.style.display = 'block';
             return;
           }
-          
+
           // Normal flow would continue here
         });
       });

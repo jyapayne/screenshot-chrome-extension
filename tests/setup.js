@@ -233,13 +233,15 @@ global.mockClipboardAPI = (scenario = 'supported') => {
 beforeEach(() => {
   // Clear all mocks first
   jest.clearAllMocks();
-  
+
   global.mockChromeAPIs();
   global.mockDOMAPIs();
   global.mockClipboardAPI('supported');
-  
-  // Mock html2canvas
-  global.html2canvas = jest.fn().mockResolvedValue(global.createMockCanvas());
+
+  // Mock html-to-image
+  global.htmlToImage = {
+    toCanvas: jest.fn().mockResolvedValue(global.createMockCanvas()),
+  };
 });
 
 // Cleanup after each test
@@ -251,13 +253,13 @@ afterEach(() => {
 expect.extend({
   toHaveBeenCalledWithClipboardMessage(received, expectedBackground, expectedClipboard) {
     const calls = received.mock.calls;
-    const matchingCall = calls.find(call => 
-      call[1] && 
+    const matchingCall = calls.find(call =>
+      call[1] &&
       call[1].action === 'startSelector' &&
       call[1].background === expectedBackground &&
       call[1].copyToClipboard === expectedClipboard
     );
-    
+
     if (matchingCall) {
       return {
         message: () => `Expected not to be called with clipboard message`,
@@ -270,7 +272,7 @@ expect.extend({
       };
     }
   },
-  
+
   toHaveClipboardResult(received, expectedSuccess, expectedErrorType) {
     if (!received.clipboardResult) {
       return {
@@ -278,10 +280,10 @@ expect.extend({
         pass: false
       };
     }
-    
+
     const success = received.clipboardResult.success === expectedSuccess;
     const errorType = !expectedErrorType || received.clipboardResult.errorType === expectedErrorType;
-    
+
     if (success && errorType) {
       return {
         message: () => `Expected clipboard result not to match`,

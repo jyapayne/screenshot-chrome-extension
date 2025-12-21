@@ -369,7 +369,7 @@ class ScreenshotSelector {
     try {
       // Determine loading message based on enabled operations
       let loadingMessage = 'Capturing screenshot...';
-      
+
       if (this.saveToPc && this.copyToClipboard) {
         // Both operations enabled
         const availability = this.checkClipboardAPIAvailability();
@@ -411,89 +411,41 @@ class ScreenshotSelector {
       element.classList.remove('screenshot-highlight');
       this.removeScrollableIndicators();
 
-      // Store original styles
-      const originalStyles = {
-        overflow: element.style.overflow,
-        overflowY: element.style.overflowY,
-        overflowX: element.style.overflowX,
-        height: element.style.height,
-        maxHeight: element.style.maxHeight,
-        position: element.style.position,
-        zIndex: element.style.zIndex,
-      };
-
-      // Temporarily modify element for full capture
-      element.style.overflow = 'visible';
-      element.style.overflowY = 'visible';
-      element.style.overflowX = 'visible';
-      element.style.height = `${element.scrollHeight}px`;
-      element.style.maxHeight = 'none';
-
       // Wait for fonts and external resources to load
       await this.waitForFontsAndResources(element);
 
-            // Enhanced html2canvas configuration
-      const canvas = await html2canvas(element, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: this.background === 'transparent' ? null :
-                        this.background === 'white' ? '#ffffff' : '#000000',
+      if (!window.htmlToImage || typeof window.htmlToImage.toCanvas !== 'function') {
+        throw new Error('Screenshot renderer not available: htmlToImage.toCanvas() missing');
+      }
 
-        // Improved rendering options
-        scale: window.devicePixelRatio || 1, // Use device pixel ratio for crisp images
-        logging: false, // Disable logging for cleaner console
+      const backgroundColor =
+        this.background === 'transparent'
+          ? undefined
+          : this.background === 'white'
+            ? '#ffffff'
+            : '#000000';
 
-        // Better handling of external resources
-        imageTimeout: 15000, // Wait longer for images to load
-
-        // Font handling and style preservation
-        onclone: (clonedDoc, clonedElementParam) => {
-          // Ensure all stylesheets are loaded in cloned document
-          const originalStyleSheets = Array.from(document.styleSheets);
-          const clonedHead = clonedDoc.head;
-
-          // Copy all stylesheets to cloned document
-          originalStyleSheets.forEach(styleSheet => {
-            try {
-              if (styleSheet.href) {
-                // External stylesheet
-                const link = clonedDoc.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = styleSheet.href;
-                link.type = 'text/css';
-                clonedHead.appendChild(link);
-              } else if (styleSheet.ownerNode && styleSheet.ownerNode.tagName === 'STYLE') {
-                // Inline stylesheet
-                const style = clonedDoc.createElement('style');
-                style.type = 'text/css';
-                try {
-                  const cssText = Array.from(styleSheet.cssRules).map(rule => rule.cssText).join('\n');
-                  style.textContent = cssText;
-                } catch (e) {
-                  // Fallback to original text content
-                  style.textContent = styleSheet.ownerNode.textContent;
-                }
-                clonedHead.appendChild(style);
-              }
-            } catch (e) {
-              // Skip stylesheets that can't be accessed (CORS issues)
-              console.log('Skipped stylesheet due to CORS:', e);
-            }
-          });
-
-          // Apply computed styles to preserve appearance
-          const clonedElement = clonedElementParam;
-          const originalElement = element; // from outer scope
-          if (clonedElement && originalElement) {
-            this.preserveComputedStyles(clonedElement, originalElement);
-          }
-
-          return clonedDoc;
-        }
+      // Use html-to-image to render the element to a canvas.
+      // Important: avoid mutating the live DOM during capture (it can cause reflow/layout drift).
+      const canvas = await window.htmlToImage.toCanvas(element, {
+        backgroundColor,
+        pixelRatio: window.devicePixelRatio || 1,
+        // Brightspace/D2L and many sites have CORS-protected stylesheets/fonts which cause noisy,
+        // expected DOMExceptions during CSS rule inspection. Keep logs clean by default.
+        logLevel: 'silent',
+        // If the page heavily caches fonts/images, enabling this can help but may slow capture
+        cacheBust: false,
+        // Capture full scrollable area without reflowing the live element
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        style: {
+          overflow: 'visible',
+          overflowX: 'visible',
+          overflowY: 'visible',
+          height: `${element.scrollHeight}px`,
+          maxHeight: 'none',
+        },
       });
-
-      // Restore original styles
-      Object.assign(element.style, originalStyles);
 
       // Conditionally download the image based on saveToPc preference
       if (this.saveToPc) {
@@ -515,15 +467,15 @@ class ScreenshotSelector {
             // Ensure clipboard errors don't break the workflow - this is a safety net
             // The copyCanvasToClipboard method should handle all errors internally
             console.error('Unexpected clipboard error caught in captureElement:', error);
-            clipboardResult = { 
-              success: false, 
+            clipboardResult = {
+              success: false,
               error: 'Unexpected clipboard error occurred',
               errorType: 'unexpected'
             };
           }
         } else {
-          clipboardResult = { 
-            success: false, 
+          clipboardResult = {
+            success: false,
             error: availability.reason,
             errorType: 'api_unavailable'
           };
@@ -534,7 +486,7 @@ class ScreenshotSelector {
       let successMessage = 'Screenshot captured!';
       let messageColor = 'rgba(39, 174, 96, 0.95)'; // Green for success
       let messageIcon = '✅';
-      
+
       // Determine success message based on enabled operations
       if (this.saveToPc && this.copyToClipboard) {
         // Both operations enabled
@@ -582,11 +534,11 @@ class ScreenshotSelector {
 
     } catch (error) {
       console.error('Screenshot failed:', error);
-      
+
       // Provide specific error messages for screenshot failures based on enabled operations
       let errorMessage = 'Screenshot capture failed. Please try again.';
       let operationContext = '';
-      
+
       // Add context about what operations were attempted
       if (this.saveToPc && this.copyToClipboard) {
         operationContext = ' Neither file download nor clipboard copy could be completed.';
@@ -595,9 +547,9 @@ class ScreenshotSelector {
       } else if (!this.saveToPc && this.copyToClipboard) {
         operationContext = ' Clipboard copy could not be completed.';
       }
-      
+
       if (error.message) {
-        if (error.message.includes('html2canvas')) {
+        if (error.message.includes('htmlToImage') || error.message.includes('html-to-image')) {
           errorMessage = `Screenshot rendering failed. Try selecting a different element or refresh the page.${operationContext}`;
         } else if (error.message.includes('timeout')) {
           errorMessage = `Screenshot capture timed out. Try selecting a smaller area or simpler element.${operationContext}`;
@@ -613,7 +565,7 @@ class ScreenshotSelector {
       } else {
         errorMessage = `Screenshot capture failed. Please try again.${operationContext}`;
       }
-      
+
       this.overlay.innerHTML = `
         <div style="position: fixed; top: 20px; left: 20px; background: rgba(231, 76, 60, 0.95); color: white; padding: 12px 16px; border-radius: 8px; z-index: 2147483647; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -622,10 +574,10 @@ class ScreenshotSelector {
           </div>
         </div>
       `;
-      
+
       // Notify popup about the failure
       chrome.runtime.sendMessage({ action: 'selectorStopped', reason: 'screenshot-failed' });
-      
+
       setTimeout(() => this.cleanup(), 3000);
     }
   }
@@ -678,7 +630,7 @@ class ScreenshotSelector {
    */
   getClipboardSupportFeedback() {
     const availability = this.checkClipboardAPIAvailability();
-    
+
     if (availability.available) {
       return {
         supported: true,
@@ -688,7 +640,7 @@ class ScreenshotSelector {
 
     // Provide user-friendly messages for different scenarios
     let userMessage = '';
-    
+
     if (availability.reason.includes('not available') || availability.reason.includes('not supported')) {
       userMessage = 'Your browser doesn\'t support clipboard copying. Screenshots will still be downloaded.';
     } else if (availability.reason.includes('secure context')) {
@@ -723,39 +675,39 @@ class ScreenshotSelector {
     switch (errorType) {
       case 'permission_denied':
         return 'clipboard copy failed: permission denied. Please allow clipboard access in your browser settings';
-      
+
       case 'not_supported':
       case 'api_unavailable':
         return 'clipboard copy is not available in this browser';
-      
+
       case 'security_error':
         return 'clipboard copy was blocked by browser security. Try using HTTPS or check site permissions';
-      
+
       case 'size_limit':
       case 'quota_exceeded':
         return 'clipboard copy failed: image too large. Try capturing a smaller area';
-      
+
       case 'timeout':
         return 'clipboard copy timed out. The image may be too large or complex';
-      
+
       case 'network_error':
         return 'clipboard copy failed due to network error. Please try again';
-      
+
       case 'canvas_conversion':
         return 'clipboard copy failed: unable to prepare image. Try capturing a different element';
-      
+
       case 'clipboard_item_creation':
         return 'clipboard copy is not supported: your browser doesn\'t support image clipboard operations';
-      
+
       case 'invalid_state':
         return 'clipboard copy failed: browser clipboard is busy. Please try again';
-      
+
       case 'data_error':
         return 'clipboard copy failed: invalid image data. Please try capturing again';
-      
+
       case 'unexpected':
         return 'clipboard copy failed due to unexpected error';
-      
+
       default:
         // For unknown error types, try to extract meaningful info from the error message
         if (errorMessage.includes('permission') || errorMessage.includes('denied')) {
@@ -782,8 +734,8 @@ class ScreenshotSelector {
       // Check clipboard API availability first
       const availability = this.checkClipboardAPIAvailability();
       if (!availability.available) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: availability.reason,
           errorType: 'api_unavailable'
         };
@@ -800,7 +752,7 @@ class ScreenshotSelector {
             }
           }, 'image/png');
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Canvas to blob conversion timed out')), 10000)
         )
       ]);
@@ -832,7 +784,7 @@ class ScreenshotSelector {
       // Write to clipboard with timeout
       await Promise.race([
         navigator.clipboard.write([clipboardItem]),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Clipboard write operation timed out')), 15000)
         )
       ]);
@@ -841,16 +793,16 @@ class ScreenshotSelector {
 
     } catch (error) {
       console.error('Clipboard operation failed:', error);
-      
+
       // Comprehensive error handling with specific error types and user-friendly messages
       let errorMessage = error.message || 'Unknown clipboard error';
       let errorType = 'unknown';
-      
+
       // Permission-related errors
       if (error.name === 'NotAllowedError') {
         errorMessage = 'Clipboard access denied. Please allow clipboard permissions in your browser settings.';
         errorType = 'permission_denied';
-      } 
+      }
       // API support errors
       else if (error.name === 'NotSupportedError') {
         errorMessage = 'Clipboard API not supported in this browser context.';
@@ -897,8 +849,8 @@ class ScreenshotSelector {
         errorType = 'unknown';
       }
 
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: errorMessage,
         errorType: errorType
       };
@@ -963,7 +915,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'checkClipboardSupport':
       const availability = screenshotSelector.checkClipboardAPIAvailability();
       const feedback = screenshotSelector.getClipboardSupportFeedback();
-      sendResponse({ 
+      sendResponse({
         availability: availability,
         feedback: feedback
       });

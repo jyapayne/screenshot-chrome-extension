@@ -53,8 +53,10 @@ global.window = {
   CSS: { escape: jest.fn(str => str) }
 };
 
-// Mock html2canvas
-global.html2canvas = jest.fn();
+// Mock html-to-image
+global.htmlToImage = {
+  toCanvas: jest.fn(),
+};
 
 // Mock ScreenshotSelector class for testing
 class MockScreenshotSelector {
@@ -126,10 +128,18 @@ class MockScreenshotSelector {
       toDataURL: jest.fn(() => 'data:image/png;base64,mockdata')
     };
 
-    // Mock html2canvas
-    global.html2canvas.mockResolvedValue(mockCanvas);
+    // Mock html-to-image
+    global.htmlToImage.toCanvas.mockResolvedValue(mockCanvas);
 
-    const canvas = await global.html2canvas(element);
+    const canvas = await global.htmlToImage.toCanvas(element, {
+      backgroundColor: this.background === 'transparent'
+        ? undefined
+        : this.background === 'white'
+          ? '#ffffff'
+          : '#000000',
+      pixelRatio: global.window.devicePixelRatio || 1,
+      cacheBust: false
+    });
 
     // Conditionally download based on saveToPc setting
     if (this.saveToPc) {
@@ -159,7 +169,7 @@ describe('Save to PC and Clipboard Combinations', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Reset mocks
     mockCreateElement.mockClear();
     mockCreateElement.mockReturnValue(mockLink);
@@ -168,7 +178,7 @@ describe('Save to PC and Clipboard Combinations', () => {
       global.document.createElement = mockCreateElement;
     }
     mockLink.click.mockClear();
-    
+
     // Setup clipboard API mocks
     global.navigator = {
       clipboard: {
@@ -207,7 +217,7 @@ describe('Save to PC and Clipboard Combinations', () => {
       // Verify download was triggered
       expect(mockCreateElement).toHaveBeenCalledWith('a');
       expect(mockLink.click).toHaveBeenCalled();
-      
+
       // Verify clipboard operation was attempted
       expect(global.navigator.clipboard.write).toHaveBeenCalled();
     });
@@ -256,7 +266,7 @@ describe('Save to PC and Clipboard Combinations', () => {
       // Verify download was triggered
       expect(mockCreateElement).toHaveBeenCalledWith('a');
       expect(mockLink.click).toHaveBeenCalled();
-      
+
       // Verify clipboard operation was NOT attempted
       expect(global.navigator.clipboard.write).not.toHaveBeenCalled();
     });
@@ -287,7 +297,7 @@ describe('Save to PC and Clipboard Combinations', () => {
 
       // Verify download was NOT triggered
       expect(mockCreateElement).not.toHaveBeenCalledWith('a');
-      
+
       // Verify clipboard operation was attempted
       expect(global.navigator.clipboard.write).toHaveBeenCalled();
     });
@@ -317,7 +327,7 @@ describe('Save to PC and Clipboard Combinations', () => {
 
       // Verify download was NOT triggered
       expect(mockCreateElement).not.toHaveBeenCalledWith('a');
-      
+
       // Verify clipboard operation was NOT attempted
       expect(global.navigator.clipboard.write).not.toHaveBeenCalled();
     });
@@ -334,8 +344,11 @@ describe('Save to PC and Clipboard Combinations', () => {
     test('should still create canvas even when both outputs are disabled', async () => {
       await screenshotSelector.captureElement(mockElement);
 
-      // html2canvas should still be called (needed for potential future operations)
-      expect(global.html2canvas).toHaveBeenCalledWith(mockElement);
+      // html-to-image should still be called (needed for potential future operations)
+      expect(global.htmlToImage.toCanvas).toHaveBeenCalledWith(
+        mockElement,
+        expect.any(Object)
+      );
     });
   });
 });
@@ -349,24 +362,24 @@ describe('Popup Validation Logic for All Combinations', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock DOM elements
     clipboardToggle = {
       checked: true,
       addEventListener: jest.fn()
     };
-    
+
     saveToPcToggle = {
       checked: true,
       addEventListener: jest.fn()
     };
-    
+
     startBtn = {
       disabled: false,
       setAttribute: jest.fn(),
       addEventListener: jest.fn()
     };
-    
+
     validationWarning = {
       style: { display: 'none' }
     };
@@ -384,7 +397,7 @@ describe('Popup Validation Logic for All Combinations', () => {
     // Define validation function
     validateOutputMethods = function() {
       const hasValidOutput = clipboardToggle.checked || saveToPcToggle.checked;
-      
+
       if (hasValidOutput) {
         validationWarning.style.display = 'none';
         startBtn.disabled = false;
@@ -394,7 +407,7 @@ describe('Popup Validation Logic for All Combinations', () => {
         startBtn.disabled = true;
         startBtn.setAttribute('aria-describedby', 'validation-warning');
       }
-      
+
       return hasValidOutput;
     };
   });
@@ -454,13 +467,13 @@ describe('Preference Persistence Across Browser Sessions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock DOM elements
     mockClipboardToggle = {
       checked: false,
       addEventListener: jest.fn()
     };
-    
+
     mockSaveToPcToggle = {
       checked: false,
       addEventListener: jest.fn()
@@ -481,13 +494,13 @@ describe('Preference Persistence Across Browser Sessions', () => {
   test('should default to both enabled for new installations', async () => {
     // Mock no saved preferences (new installation)
     global.chrome.storage.sync.get.mockResolvedValueOnce({});
-    
+
     const popupScript = `
       document.addEventListener('DOMContentLoaded', async () => {
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const saveToPcToggle = document.getElementById('save-to-pc-toggle');
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
-        
+
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
         saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
       });
@@ -513,13 +526,13 @@ describe('Preference Persistence Across Browser Sessions', () => {
       copyToClipboard: false,
       saveToPc: true
     });
-    
+
     const popupScript = `
       document.addEventListener('DOMContentLoaded', async () => {
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const saveToPcToggle = document.getElementById('save-to-pc-toggle');
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
-        
+
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
         saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
       });
@@ -545,13 +558,13 @@ describe('Preference Persistence Across Browser Sessions', () => {
       copyToClipboard: true,
       saveToPc: false
     });
-    
+
     const popupScript = `
       document.addEventListener('DOMContentLoaded', async () => {
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const saveToPcToggle = document.getElementById('save-to-pc-toggle');
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
-        
+
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
         saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
       });
@@ -583,7 +596,7 @@ describe('Preference Persistence Across Browser Sessions', () => {
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const saveToPcToggle = document.getElementById('save-to-pc-toggle');
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
-        
+
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
         saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
       });
@@ -601,7 +614,7 @@ describe('Preference Persistence Across Browser Sessions', () => {
 
     expect(mockClipboardToggle.checked).toBe(false);
     expect(mockSaveToPcToggle.checked).toBe(false);
-    
+
     // Validation should fail with both disabled
     const isValid = mockClipboardToggle.checked || mockSaveToPcToggle.checked;
     expect(isValid).toBe(false);
@@ -613,13 +626,13 @@ describe('Preference Persistence Across Browser Sessions', () => {
       copyToClipboard: true
       // saveToPc is undefined (not set in previous version)
     });
-    
+
     const popupScript = `
       document.addEventListener('DOMContentLoaded', async () => {
         const clipboardToggle = document.getElementById('clipboard-toggle');
         const saveToPcToggle = document.getElementById('save-to-pc-toggle');
         const saved = await chrome.storage.sync.get(['backgroundPreference', 'copyToClipboard', 'saveToPc']);
-        
+
         clipboardToggle.checked = saved.copyToClipboard !== undefined ? saved.copyToClipboard : true;
         saveToPcToggle.checked = saved.saveToPc !== undefined ? saved.saveToPc : true;
       });

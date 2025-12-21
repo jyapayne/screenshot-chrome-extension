@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["html2canvas-pro.min.js", "content.js"],
+      "js": ["html-to-image.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
